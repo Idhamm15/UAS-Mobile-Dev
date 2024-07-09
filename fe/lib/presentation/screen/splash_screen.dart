@@ -12,7 +12,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Delay navigation to LoginScreen for 2 seconds
+    // Delay navigation to LoginScreen for 5 seconds
     Future.delayed(const Duration(seconds: 5), () {
       Navigator.pushReplacement(
         context,
@@ -36,7 +36,9 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Image.asset('images/logo.png'),
             ),
             const SizedBox(height: 16),
-            const CircularProgressIndicator(),
+            CircularProgressIndicator(
+              color: Colors.black, // Set the color to yellow
+            ),
           ],
         ),
       ),

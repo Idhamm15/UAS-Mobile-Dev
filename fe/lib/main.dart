@@ -187,7 +187,10 @@ Widget buildMenuItems(BuildContext context) => Container(
           ListTile(
             leading: const Icon(Icons.logout_outlined),
             title: const Text('Logout'),
-            onTap: () {},
+            // onTap: () =>
+            // Navigator.of(context).pushReplacement(MaterialPageRoute(
+            //   builder: (context) => const LoginScreen(),
+            // )),
           ),
         ],
       ),

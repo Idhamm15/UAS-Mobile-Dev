@@ -72,10 +72,10 @@
 
 
 
-import 'package:fe/presentation/screen/home_screen.dart';
+
 import 'package:flutter/material.dart';
-import 'dart:convert'; // For json decoding
-import 'package:http/http.dart' as http; // For making HTTP requests
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class TaskScreen extends StatelessWidget {
   Future<List<Task>> fetchTasks() async {
@@ -101,12 +101,6 @@ class TaskScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => HomeScreen()));
-          },
-        ),
         title: Text('Task Management'),
       ),
       body: FutureBuilder<List<Task>>(
@@ -119,8 +113,10 @@ class TaskScreen extends StatelessWidget {
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text('No tasks found'));
           } else {
-            return ListView(
-              children: snapshot.data!.map((task) {
+            return ListView.builder(
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                Task task = snapshot.data![index];
                 return ListTile(
                   title: Text(task.title),
                   subtitle: Text(task.description),
@@ -130,28 +126,43 @@ class TaskScreen extends StatelessWidget {
                       IconButton(
                         icon: Icon(Icons.edit),
                         onPressed: () {
-                          Navigator.pushNamed(context, '/edit_task', arguments: task);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => EditTaskScreen(task: task)),
+                          );
                         },
                       ),
                       IconButton(
                         icon: Icon(Icons.delete),
                         onPressed: () async {
-                          await deleteTask(task.id);
-                          // Reload tasks
-                          (context as Element).reassemble();
+                          try {
+                            await deleteTask(task.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Task deleted successfully')),
+                            );
+                            // Refresh task list after deletion
+                            (context as Element).reassemble();
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to delete task')),
+                            );
+                          }
                         },
                       ),
                     ],
                   ),
                 );
-              }).toList(),
+              },
             );
           }
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.pushNamed(context, '/add_task');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AddTaskScreen()),
+          );
         },
         child: Icon(Icons.add),
       ),
@@ -240,28 +251,36 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
-  Future<void> createTask() async {
-    final response = await http.post(
-      Uri.parse('http://localhost:8080/tasks'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'userId': 1, // Adjust accordingly
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'createdAt': DateTime.now().toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
-        'user': {
-          'id': 1, // Adjust accordingly
-          'name': 'User', // Adjust accordingly
-          'email': 'owner@go.id', // Adjust accordingly
-        },
-      }),
-    );
+Future<void> createTask() async {
+  print('Creating task with:');
+  print('Title: ${_titleController.text}');
+  print('Description: ${_descriptionController.text}');
 
-    if (response.statusCode != 201) {
-      throw Exception('Failed to create task');
-    }
+final response = await http.post(
+  Uri.parse('http://localhost:8080/tasks'),
+  headers: {'Content-Type': 'application/json'},
+  body: jsonEncode({
+    'userId': 1, // Sesuaikan dengan pengguna yang sedang aktif
+    'title': _titleController.text,
+    'description': _descriptionController.text,
+    'createdAt': DateTime.now().toUtc().toIso8601String(),
+    'updatedAt': DateTime.now().toUtc().toIso8601String(),
+    'user': {
+      'id': 1, // Sesuaikan dengan pengguna yang sedang aktif
+      'name': 'User', // Sesuaikan dengan nama pengguna
+      'email': 'owner@go.id', // Sesuaikan dengan email pengguna
+    },
+  }),
+);
+
+  print('Response status: ${response.statusCode}');
+  print('Response body: ${response.body}');
+
+  if (response.statusCode != 201) {
+    throw Exception('Failed to create task');
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -297,8 +316,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
-                await createTask();
-                Navigator.pop(context);
+                try {
+                  await createTask();
+                  Navigator.pop(context);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to add task: $e')),
+                  );
+                }
               },
               child: Text('Add Task'),
             ),
@@ -334,12 +359,17 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
       Uri.parse('http://localhost:8080/tasks/${widget.task.id}'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
+        // 'userId': widget.task.userId,
         'userId': widget.task.userId,
         'title': _titleController.text,
         'description': _descriptionController.text,
         'createdAt': widget.task.createdAt,
-        'updatedAt': DateTime.now().toIso8601String(),
-        'user': widget.task.user.toJson(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        'user': {
+          'id': 1, // Sesuaikan dengan pengguna yang sedang aktif
+          'name': 'User', // Sesuaikan dengan nama pengguna
+          'email': 'owner@go.id', // Sesuaikan dengan email pengguna
+        },
       }),
     );
 
@@ -382,8 +412,14 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
-                await updateTask();
-                Navigator.pop(context);
+                try {
+                  await updateTask();
+                  Navigator.pop(context);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update task')),
+                  );
+                }
               },
               child: Text('Save Changes'),
             ),
